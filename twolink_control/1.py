@@ -5,6 +5,13 @@ from twolink_msgs.msg import CMD
 from std_msgs.msg import Float64MultiArray
 import math
 
+class PIDController:#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+from twolink_msgs.msg import CMD
+from std_msgs.msg import Float64MultiArray
+import math
+
 class PIDController:
     def __init__(self, kp, ki, kd, dt, max_vel):
         self.kp = kp
@@ -68,17 +75,89 @@ class RobotDriver(Node):
         # PID 제어기 설정 (Kp, Ki, Kd, dt, max_vel)
         # Kp: 반응 속도 (클수록 빠름)
         # Ki: 오차 누적 보정 (작게 설정)
-        # Kd: 급격한 변화 억제 (진동 방지)
-        # max_vel: 0.5 rad/s (약 28도/초)
-        self.pid_q1 = PIDController(kp=1.5, ki=0.01, kd=0.05, dt=self.dt, max_vel=0.5)
-        self.pid_q2 = PIDController(kp=1.5, ki=0.01, kd=0.05, dt=self.dt, max_vel=0.5)
+    main()
+    def __init__(self, kp, ki, kd, dt, max_vel):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.dt = dt
+        self.max_vel = max_vel  # 최대 속도 제한 (rad/s)
+        
+        self.prev_error = 0.0
+        self.integral = 0.0
+        # 적분항 누적 제한 (Anti-Windup)
+        self.int_limit = 1.0 
+
+    def update(self, target, current):
+        error = target - current
+        
+        # P term
+        p_out = self.kp * error
+        
+        # I term
+        self.integral += error * self.dt
+        
+        # Anti-Windup: 적분항 클램핑
+        if self.integral > self.int_limit:
+            self.integral = self.int_limit
+        elif self.integral < -self.int_limit:
+            self.integral = -self.int_limit
+            
+        i_out = self.ki * self.integral
+        
+        # D term
+        derivative = (error - self.prev_error) / self.dt
+        d_out = self.kd * derivative
+        
+        # Total output (Velocity)
+        output = p_out + i_out + d_out
+        
+        # 속도 제한 (Clamping)
+        if output > self.max_vel:
+            output = self.max_vel
+        elif output < -self.max_vel:
+            output = -self.max_vel # 오타 수정 (outpuselft -> output)
+            
+        self.prev_error = error
+        return output
+
+
+class RobotDriver(Node):
+    def __init__(self):
+        super().__init__('robot_driver')
+       
+        # Publisher
+        self.publisher = self.create_publisher(CMD, 'des_value', 10)
+        
+        # Subscriber
+        self.create_subscription(Float64MultiArray, '/target_angles', self.listener_callback, 10)
+
+        # 목표 각도
+        self.q1des = 0.0
+        self.q2des = 0.0
+
+        # 현재 로봇 각도 (시뮬레이션 상의 현재 위치)
+        self.curr_q1 = 0.0
+        self.curr_q2 = 0.0
+        
+        # 제어 주기
+        self.dt = 0.02  # 50Hz
+
+        # PID 제어기 설정 (Kp, Ki, Kd, dt, max_vel)
+        # Kp: 1.0 (유지)
+        # Ki: 0.0 (유지)
+        # Kd: 0.01 (유지)
+        # max_vel: 0.3 -> 1.0 (90도/2.5s = 36deg/s = 0.63rad/s 필요. 여유있게 1.0 설정)
+        self.pid_q1 = PIDController(kp=1.0, ki=0.0, kd=0.01, dt=self.dt, max_vel=0.3)
+        self.pid_q2 = PIDController(kp=1.0, ki=0.0, kd=0.01, dt=self.dt, max_vel=0.3)
 
         # 50Hz 주기로 명령 발행
         self.create_timer(self.dt, self.publish_cmd)
 
     def listener_callback(self, msg):
         if len(msg.data) >= 2:
-            self.q1des = -math.radians(msg.data[0])
+            # q1(좌우 이동)만 부호 반전 (사용자 요청 사항 복구)
+            self.q1des = math.radians(msg.data[0])
             self.q2des = math.radians(msg.data[1])
 
     def publish_cmd(self):
