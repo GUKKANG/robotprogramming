@@ -25,7 +25,7 @@ RealSense 카메라와 ArUco 마커를 이용해 **2-link 평면 매니퓰레이
 flowchart LR
     RS["RealSense<br/>/camera/color/image_raw"]
     AD["aruco_detection_realsense<br/>마커 검출 · solvePnP"]
-    VS["kinematics<br/>Visual Servoing · IK"]
+    VS["visual_servoing<br/>Visual Servoing · IK"]
     CT["control<br/>PID 제어기 (50 Hz)"]
     SI["serial_interface<br/>CRC16 패킷 (1 kHz)"]
     HW["Arduino + 매니퓰레이터"]
@@ -46,9 +46,9 @@ flowchart LR
 
 | 노드 | 파일 | 구독 | 발행 |
 |---|---|---|---|
-| `aruco_detector_node_realsense` | [`marker_detection/aruco_detection_realsense finsl.py`](marker_detection/aruco_detection_realsense%20finsl.py) | `/camera/camera/color/image_raw`, `/camera/camera/color/camera_info` | `/aruco/pose`, `/aruco/image` |
-| `visual_servoing_node` | [`marker_detection/kinematics final.py`](marker_detection/kinematics%20final.py) | `/aruco/pose`, `/des_value` | `/target_angles` |
-| `robot_driver` | [`twolink_control/control(1) final.py`](twolink_control/control%281%29%20final.py) | `/target_angles` | `/des_value` |
+| `aruco_detector_node_realsense` | [`marker_detection/aruco_detection_realsense.py`](marker_detection/aruco_detection_realsense.py) | `/camera/camera/color/image_raw`, `/camera/camera/color/camera_info` | `/aruco/pose`, `/aruco/image` |
+| `visual_servoing_node` | [`marker_detection/visual_servoing.py`](marker_detection/visual_servoing.py) | `/aruco/pose`, `/des_value` | `/target_angles` |
+| `robot_driver` | [`twolink_control/robot_driver.py`](twolink_control/robot_driver.py) | `/target_angles` | `/des_value` |
 | `serial_interface` | [`twolink_control/serial_interface.py`](twolink_control/serial_interface.py) | `/des_value` | `/robot_state` |
 | `keyboard_command` | [`twolink_control/keyboard_command.py`](twolink_control/keyboard_command.py) | `/robot_state` | `/des_value` |
 
@@ -117,13 +117,13 @@ Arduino와의 통신은 1 kHz 주기 커스텀 바이너리 프로토콜로 처�
 ros2 launch realsense2_camera rs_launch.py
 
 # 2. 마커 검출
-python3 "marker_detection/aruco_detection_realsense finsl.py"
+python3 marker_detection/aruco_detection_realsense.py
 
 # 3. 비주얼 서보잉 (IK)
-python3 "marker_detection/kinematics final.py"
+python3 marker_detection/visual_servoing.py
 
 # 4. PID 제어기
-python3 "twolink_control/control(1) final.py"
+python3 twolink_control/robot_driver.py
 
 # 5. 하드웨어 인터페이스 (/dev/ttyACM0, 115200 baud)
 python3 twolink_control/serial_interface.py
@@ -138,12 +138,18 @@ python3 twolink_control/serial_interface.py
 ## 5. 저장소 구성
 
 ```
-marker_detection/     인식 + 기구학 노드
-twolink_control/      제어 + 하드웨어 인터페이스 노드
-lecture_note/         강의 자료 (ROB4008 이론, ROB4009 실습)
+marker_detection/
+  aruco_detection_realsense.py   마커 검출 (aruco_detector_node_realsense)
+  visual_servoing.py             비주얼 서보잉 · 역기구학 (visual_servoing_node)
+twolink_control/
+  robot_driver.py                PID 제어기 (robot_driver)
+  serial_interface.py            하드웨어 시리얼 인터페이스 (serial_interface)
+  keyboard_command.py            수동 teleop (keyboard_command)
+archive/                         실습 중 거쳐 간 이전 반복본 (참고용, 실행 대상 아님)
+lecture_note/                    강의 자료 (ROB4008 이론, ROB4009 실습)
 ```
 
-파일명에 `final`, `copy`가 붙은 것은 실습 중 반복 수정한 흔적으로, **동작이 검증된 최종본은 위 실행 방법에 명시한 파일**입니다.
+각 파일명은 해당 ROS 2 노드명과 일치합니다. `archive/`에는 최종본에 이르기까지 거쳐 간 이전 버전들을 남겨 두었습니다 — 초기 서보잉 구현, 탐색 모드 추가 전의 기구학 버전, PID 도입 전의 제어기 등입니다.
 
 ---
 
