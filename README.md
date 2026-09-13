@@ -146,7 +146,6 @@ twolink_control/
   serial_interface.py            하드웨어 시리얼 인터페이스 (serial_interface)
   keyboard_command.py            수동 teleop (keyboard_command)
 archive/                         실습 중 거쳐 간 이전 반복본 (참고용, 실행 대상 아님)
-lecture_note/                    강의 자료 (ROB4008 이론, ROB4009 실습)
 ```
 
 각 파일명은 해당 ROS 2 노드명과 일치합니다. `archive/`에는 최종본에 이르기까지 거쳐 간 이전 버전들을 남겨 두었습니다 — 초기 서보잉 구현, 탐색 모드 추가 전의 기구학 버전, PID 도입 전의 제어기 등입니다.
